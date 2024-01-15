@@ -20,6 +20,22 @@ function Q3(V, T, B, G = B.*0)
     -V[3]*(V[1]*(B[3,1]*cos(T[3]-T[1]) - G[3,1]*sin(T[3]-T[1])) + V[2]*(B[3,2]*cos(T[3]-T[2]) - G[3,2]*sin(T[3]-T[2])) + V[3]*B[3,3])
 end
 
+function Powers(V, T, B, G = B.*0)
+    P = []
+    n = length(V)
+    for i = 1:n
+        Pi = 0
+        for j = 1:n
+            if (B[i,j] + G[i,j]) != 0 
+                Pi += V[j]*(G[i,j]*cos(T[i]-T[j]) + B[i,j]*sin(T[i]-T[j]))
+            end
+        end
+        Pi *= V[i]
+        push!(P, Pi)
+    end
+    return P
+end
+
 function return_f(V, B, p1, p2, p3, q2, q3)
     sol = []
     eq1 = (x -> P1(V, [0, x[1], x[2]], B) - p1)
@@ -177,7 +193,7 @@ function main_yielding_a_contradiction()
     
     println("G0 loss matrix")
     display(G0)
-    L = collect(LinRange(0, 1, 5))
+    L = collect(LinRange(0, 1, 11))
     for k in (L)
         perform(V, T, B, G0, k)
     end
@@ -196,10 +212,11 @@ function main()
     display(B)
 
     #B = [-7.53 4.33 3.2; 4.33 -5.49 1.16; 3.2 1.16 -4.36]
+
     G0 = random_B(6)
-    
     println("G0 loss matrix")
     display(G0)
+
     L = collect(LinRange(0, 1.5, 25))
     for k in (L)
         perform(V, T, B, G0, k)
@@ -208,4 +225,4 @@ function main()
     readline()
 end
 
-main_yielding_a_contradiction()
+main()
