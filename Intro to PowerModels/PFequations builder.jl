@@ -32,9 +32,9 @@ function return_f_KS(mydata, k) # Une fct de R^(n-1)-> R^(n-1), qui construit le
 
     for i = 1:n
         if buses[i][2]["bus_type"] != 3
-            push!(sol, (x -> equaKS(i,x,mydata, k)))
+            push!(sol, (x -> equaKS(i, x, mydata, k)))
         else
-            push!(sol, (x -> angconstr(i,x,mydata)))
+            push!(sol, (x -> angconstr(i, x, mydata)))
         end
     end
 

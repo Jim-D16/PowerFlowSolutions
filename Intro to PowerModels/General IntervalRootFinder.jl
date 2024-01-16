@@ -36,18 +36,38 @@ function Powers(V, T, B, G = B.*0)
     return P
 end
 
-function return_f(V, B, p1, p2, p3, q2, q3)
+function Reactive_Powers(V, T, B, G = B.*0)
+    Q = []
+    n = length(V)
+    for i = 1:n
+        Qi = 0
+        for j = 1:n
+            if (B[i,j] + G[i,j]) != 0 
+                Qi += V[j]*(G[i,j]*sin(T[i]-T[j]) - B[i,j]*cos(T[i]-T[j]))
+            end
+        end
+        Qi *= V[i]
+        push!(Q, Qi)
+    end
+    return Q
+end
+
+
+function return_f_KS(V, B, P, slackbus_id = 1)
     sol = []
-    eq1 = (x -> P1(V, [0, x[1], x[2]], B) - p1)
-    eq2 = (x -> P2(V, [0, x[1], x[2]], B) - p2)
-    eq3 = (x -> P3(V, [0, x[1], x[2]], B) - p3)
-    eq4 = (x -> Q2(V, [0, x[1], x[2]], B) - q2)
-    eq5 = (x -> Q3(V, [0, x[1], x[2]], B) - q3)
-    push!(sol, eq1)
-    push!(sol, eq2)
-    push!(sol, eq3)
-    push!(sol, eq4)
-    push!(sol, eq5)
+    t = slackbus_id - 1 
+    t2 = slackbus_id + 1
+    n = length(V)
+
+    for i = 1:t
+        eq = (x -> Powers(V, [0; collect(x)], B)[i] - P[i])
+        push!(sol, eq)
+    end
+
+    for i = t2:n
+        eq = (x -> Powers(V, [0; collect(x)], B)[i] - P[i])
+        push!(sol, eq)
+    end
     return sol
 end
 
@@ -59,13 +79,10 @@ end
 
 
 function perform(V, T, B, G0, k = 0)
+    n = length(V)
     G = -G0 .* k
     
-    p1 = P1(V, T, B, G)
-    p2 = P2(V, T, B, G)
-    p3 = P3(V, T, B, G)
-    q2 = Q2(V, T, B, G)
-    q3 = Q3(V, T, B, G)
+    P = Powers(V, T, B, G)
 
     #=
     generated_power = 0
@@ -87,22 +104,31 @@ function perform(V, T, B, G0, k = 0)
     println("Total loss _ $lost_power")
     println("Relative loss : $rel_loss") =#
     
-    #println("G / B ratio : $k")
     
-    F = (x -> SVector{5}([f(x) for f in return_f(V, B, p1, p2, p3, q2, q3)]))
-    G23 = truncated_f(F, [2,3])
+    F = (x -> SVector{n-1}([f(x) for f in return_f_KS(V, B, P)]))
+
 
     D1 = (-pi..pi)
-    D = IntervalBox(D1, D1)
+    mybox = []
+    for i = 2:n
+        push!(mybox, D1)
+    end
 
-    rts = roots(G23, D, Krawczyk)
+    D = IntervalBox(mybox) #The slack bus is assumed to have index 1
+
+    rts = roots(F, D, Krawczyk, 1e-6)
+
+    
+    println("k = $k")
+    display(rts)
+
    
 
     #k = round(k, digits = 3)
-
+    THD = false
     if length(rts) == 0
         println("Ratio $k lead to 0 sol")
-    else
+    elseif n == 3
         for r in rts
             m = mid(r.interval)
             if length(rts) > 2
@@ -112,69 +138,65 @@ function perform(V, T, B, G0, k = 0)
             end
         end
         if length(rts) == 1
-            println("Critical value !? $k") # Closest candidat for the "jim standard 3-bus test case" k = 0.34860. Note that k = 0.34861 yields 0 solution
+            println("Critical value !? $k") 
             println("Solution : $m")
             println("")
         end
+    elseif n == 4
+        for r in rts
+            m = mid(r.interval)
+            if length(rts) > 2
+                plot3d!([m[1]], [m[2]], [m[3]], marker = :circle, color = :green, label="", show = true)
+            else
+                plot3d!([m[1]], [m[2]], [m[3]], marker = :circle, color = :red, label="", show = true)
+            end
+        end
+        if length(rts) == 1
+            println("Critical value !? $k") 
+            println("Solution : $m")
+            println("")
+        end
+        println("Solution for k = $k is 3D-plotted")
+    else
+        THD = true
     end
-    println("k = $(round(k, digits = 3))")
-    display(rts)
-    readline()
+    if THD
+        println("Too high dimension -> we cannot visualize the roots :/ ")
+    end
+    #println("k = $(round(k, digits = 3))")
+    #display(rts)
 
     return length(rts)
 
 end
 
-function random_B(scale = 12)
-    b12 = scale*rand()
-    b13 = scale*rand()
-    b23 = scale*rand()
+function random_B(scale = 12, dim = 3, showit = false)
 
-    return [-(b12+b13) b12 b13; b12 -(b12+b23) b23; b13 b23 -(b13+b23)]
-end
-#=
-function give_me_k(b23)
+    B = zeros(dim, dim)
 
-    V = [1., 1., 1.]
-    #t2 = 2*rand()-2
-    #t3 = 2*rand()-2
-    
-    t2 = pi/6
-    t3 = -pi/10
-    T = [0., t2, t3]
-
-
-
-    #B = random_B()
-    B = [-7.52 4.33 3.2; 4.33 -4.48 b23; 3.2 b23 -3.36]
-    #B = [-27 12 15; 12 -32 20; 15 20 -35]
-
-    B = round.(B, digits = 2)
-    #display(B)
-    #println("t2 = $t2, t3 = $t3")
-
-    finalk = 0
-    k = 0.3
-    upper = 1
-    lower = 0
-
-    for i = 1:7
-        Z = perform(V, T, B, k)
-
-        if Z > 2
-            lower = k
-            k = (k + upper)/2 
-        else
-            upper = k
-            k = (k+lower)/2
-        end
-        finalk = k
+    for i = 1:(dim-1)
+        for j = (i+1):dim 
+            b = scale*rand()
+            B[i,j] = b
+            B[j,i] = b
+        end    
     end
-    #println("im done")
-    return finalk
 
-#annotate!((0.95, 0.95), text("ratio = $k", :black, :right, 8))
-end =#
+    for i = 1:dim
+        sum_of_line = 0
+        for j = 1:dim
+            sum_of_line += B[i,j]
+        end
+        B[i,i] = -sum_of_line
+    end
+    
+    if showit
+        display(B)
+    end
+
+    return B
+end
+
 
 function main_yielding_a_contradiction()
     t2 = 6.06785081987959
@@ -202,20 +224,20 @@ function main_yielding_a_contradiction()
 end
 
 function main()
+
     t2 = rand()*2*pi
     t3 = rand()*2*pi
     println("Initial angles = $t2, $t3")
     T = [0., t2, t3]
     V = [1., 1., 1.]
-    B = random_B(10)
-    println("B susceptance matrix")
-    display(B)
 
+    println("B susceptance matrix")
+
+    B = random_B(10, 3, true)
     #B = [-7.53 4.33 3.2; 4.33 -5.49 1.16; 3.2 1.16 -4.36]
 
-    G0 = random_B(6)
     println("G0 loss matrix")
-    display(G0)
+    G0 = random_B(6, 3, true)
 
     L = collect(LinRange(0, 1.5, 25))
     for k in (L)
@@ -225,4 +247,39 @@ function main()
     readline()
 end
 
-main()
+function main_4D()
+
+    t2 = rand()*2*pi
+    t3 = rand()*2*pi
+    t4 = rand()*2*pi
+    #println("Initial angles = $t2, $t3, $t4")
+    #T = [0., t2, t3, t4]
+    T = [0., 4.745265081210639, 3.5352214556297867, 0.6953053086777519]
+    V = [1., 1., 1., 1.]
+
+    println("B susceptance matrix")
+    #B = random_B(12, 4, true)
+
+    B = [-11.8462     6.40909   4.40631     1.03082;
+    6.40909  -18.7585    2.56043     9.78902;
+    4.40631    2.56043  -7.48118     0.514437;
+    1.03082    9.78902   0.514437  -11.3343]
+
+    println("G0 loss matrix")
+    #G0 = random_B(8, 4, true)
+
+    G0 = [-9.2289    4.34688   1.95079   2.93123;
+    4.34688  -8.93819   1.85527   2.73604;
+    1.95079   1.85527  -7.33457   3.52851;
+    2.93123   2.73604   3.52851  -9.19578]
+
+    L = collect(LinRange(0, 0.3, 14))
+    for k in (L)
+        perform(V, T, B, G0, k)
+    end
+    println("im done")
+    readline()
+
+end
+
+main_4D()
