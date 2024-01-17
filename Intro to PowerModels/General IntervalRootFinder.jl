@@ -1,25 +1,5 @@
 using PowerModels, LinearAlgebra, StaticArrays, IntervalArithmetic, IntervalRootFinding, JuMP, Ipopt, ProgressBars, ForwardDiff, Dates, Plots
 
-function P1(V, T, B, G = B.*0)
-    V[1]*(V[2]*(B[1,2]*sin(T[1]-T[2]) + G[1,2]*cos(T[1]-T[2])) + V[3]*(B[1,3]*sin(T[1]-T[3]) + G[1,3]*cos(T[1]-T[3])) + V[1]*G[1,1])
-end
-
-function P2(V, T, B, G = B.*0)
-    V[2]*(V[1]*(B[2,1]*sin(T[2]-T[1]) + G[2,1]*cos(T[2]-T[1])) + V[3]*(B[2,3]*sin(T[2]-T[3]) + G[2,3]*cos(T[2]-T[3])) + V[2]*G[2,2])
-end
-
-function P3(V, T, B, G = B.*0)
-    V[3]*(V[2]*(B[3,2]*sin(T[3]-T[2]) + G[3,2]*cos(T[3]-T[2])) + V[1]*(B[3,1]*sin(T[3]-T[1]) + G[3,1]*cos(T[3]-T[1])) + V[3]*G[3,3])
-end
-
-function Q2(V, T, B, G = B.*0)
-    -V[2]*(V[1]*(B[2,1]*cos(T[2]-T[1]) - G[2,1]*sin(T[2]-T[1])) + V[3]*(B[2,3]*cos(T[2]-T[3]) - G[2,3]*sin(T[2]-T[3])) + V[2]*B[2,2])
-end
-
-function Q3(V, T, B, G = B.*0)
-    -V[3]*(V[1]*(B[3,1]*cos(T[3]-T[1]) - G[3,1]*sin(T[3]-T[1])) + V[2]*(B[3,2]*cos(T[3]-T[2]) - G[3,2]*sin(T[3]-T[2])) + V[3]*B[3,3])
-end
-
 function Powers(V, T, B, G = B.*0)
     P = []
     n = length(V)
@@ -71,14 +51,7 @@ function return_f_KS(V, B, P, slackbus_id = 1)
     return sol
 end
 
-function truncated_f(F, I) # For a fct F that returns a vector of size n, builds a form that will only return a vector of size |I|, by choosing the coords of F that corresp to elements of I
-    t = length(I)
-    G = (x -> SVector{t}([F(x)[i] for i in I]))
-    return G
-end
-
-
-function perform(V, T, B, G0, k = 0)
+function perform(V, T, B, G0, D, k = 0)
     n = length(V)
     G = -G0 .* k
     
@@ -107,28 +80,12 @@ function perform(V, T, B, G0, k = 0)
     
     F = (x -> SVector{n-1}([f(x) for f in return_f_KS(V, B, P)]))
 
+    rts = roots(F, D, Krawczyk, 1e-4)
 
-    D1 = (-pi..pi)
-    mybox = []
-    for i = 2:n
-        push!(mybox, D1)
-    end
-
-    D = IntervalBox(mybox) #The slack bus is assumed to have index 1
-
-    rts = roots(F, D, Krawczyk, 1e-6)
-
-    
-    println("k = $k")
     display(rts)
-
-   
-
-    #k = round(k, digits = 3)
+    
     THD = false
-    if length(rts) == 0
-        println("Ratio $k lead to 0 sol")
-    elseif n == 3
+    if n == 3
         for r in rts
             m = mid(r.interval)
             if length(rts) > 2
@@ -136,11 +93,6 @@ function perform(V, T, B, G0, k = 0)
             else
                 plot!([m[1]], [m[2]], seriestype = :scatter, color = :red, label="", show = true)
             end
-        end
-        if length(rts) == 1
-            println("Critical value !? $k") 
-            println("Solution : $m")
-            println("")
         end
     elseif n == 4
         for r in rts
@@ -151,22 +103,15 @@ function perform(V, T, B, G0, k = 0)
                 plot3d!([m[1]], [m[2]], [m[3]], marker = :circle, color = :red, label="", show = true)
             end
         end
-        if length(rts) == 1
-            println("Critical value !? $k") 
-            println("Solution : $m")
-            println("")
-        end
-        println("Solution for k = $k is 3D-plotted")
     else
         THD = true
     end
+
     if THD
         println("Too high dimension -> we cannot visualize the roots :/ ")
     end
-    #println("k = $(round(k, digits = 3))")
-    #display(rts)
 
-    return length(rts)
+    return rts
 
 end
 
@@ -197,27 +142,48 @@ function random_B(scale = 12, dim = 3, showit = false)
     return B
 end
 
+function next_interval(root, r = 0.4) #Provided one (multi-dim) root, generates an interval of radius r centered at this root
+    #The choice of r = 0.4 as a default value culd be argued against, it probably makes sense to perform tests to see if 0.4 is relevant. Shrinking r would accelerate the program, but may lead to the loss of some solutions
+    mybox = []
+    m = mid(root.interval)
+    for mc in m
+        I = interval(mc - r, mc + r)
+        push!(mybox, I)
+    end
 
-function main_yielding_a_contradiction()
+    return IntervalBox(mybox)
+end
+
+function main_yielding_a_contradiction() # 3 bus system that contradicts the assumption (losses increase -> solutions diminish)
+    #The accelerated method (ie the use of next_interval) supposes that the assumption is true, in particular, using it here will not yield a contradiction (although there is one)
     t2 = 6.06785081987959
     t3 = 4.028180014959005
     println("Initial angles = $t2, $t3")
     T = [0., t2, t3]
     V = [1., 1., 1.]
     B = [-7.53 4.33 3.2; 4.33 -5.49 1.16; 3.2 1.16 -4.36]
-
+    println("B susceptance matrix")
+    display(B)
+    n = length(T)
 
     G0 = [-8.07466   4.95559   3.11907; # Contradicts the monotony of number of solutions with k : k=0 admits 2 sol; 0.2<=k<= admits 4
     4.95559  -6.77213   1.81654;
-    3.11907   1.81654  -4.93561]
-    
-    #G0 = random_B(6)
+    3.11907   1.81654  -4.93561]   
     
     println("G0 loss matrix")
     display(G0)
-    L = collect(LinRange(0, 1, 11))
+
+    D1 = (-pi..pi)
+    mybox = []
+    for i = 2:n
+        push!(mybox, D1)
+    end
+
+    D = IntervalBox(mybox) 
+
+    L = collect(LinRange(0, 0.3, 14))
     for k in (L)
-        perform(V, T, B, G0, k)
+        perform(V, T, B, G0, D, k)
     end
     println("im done")
     readline()
@@ -230,6 +196,7 @@ function main()
     println("Initial angles = $t2, $t3")
     T = [0., t2, t3]
     V = [1., 1., 1.]
+    n = length(T)
 
     println("B susceptance matrix")
 
@@ -239,9 +206,38 @@ function main()
     println("G0 loss matrix")
     G0 = random_B(6, 3, true)
 
-    L = collect(LinRange(0, 1.5, 25))
+    D1 = (-pi..pi)
+    mybox = []
+    for i = 2:n
+        push!(mybox, D1)
+    end
+
+    D = IntervalBox(mybox) 
+
+    println("k = 0")
+    rts = perform(V, T, B, G0, D, 0)
+
+    L = collect(LinRange(0.025, 0.3, 12))
     for k in (L)
-        perform(V, T, B, G0, k)
+        println("k = $k")
+        new_rts = []
+
+        for root in rts
+            d = next_interval(root)
+            new_root = perform(V, T, B, G0, d, k)
+            if length(new_root) > 1
+                println("$root made babies")
+            elseif length(new_root) == 0
+                println("$root died")
+            end
+            if length(new_root) > 0
+                for h in new_root
+                    push!(new_rts, h)
+                end
+            end
+        end
+        rts = new_rts
+        
     end
     println("im done")
     readline()
@@ -252,34 +248,60 @@ function main_4D()
     t2 = rand()*2*pi
     t3 = rand()*2*pi
     t4 = rand()*2*pi
-    #println("Initial angles = $t2, $t3, $t4")
-    #T = [0., t2, t3, t4]
-    T = [0., 4.745265081210639, 3.5352214556297867, 0.6953053086777519]
+    println("Initial angles = $t2, $t3, $t4")
+    T = [0., t2, t3, t4]
+
     V = [1., 1., 1., 1.]
+    n = length(T)
 
     println("B susceptance matrix")
-    #B = random_B(12, 4, true)
+    B = random_B(12, 4, true)
 
-    B = [-11.8462     6.40909   4.40631     1.03082;
-    6.40909  -18.7585    2.56043     9.78902;
-    4.40631    2.56043  -7.48118     0.514437;
-    1.03082    9.78902   0.514437  -11.3343]
 
     println("G0 loss matrix")
-    #G0 = random_B(8, 4, true)
+    G0 = random_B(8, 4, true)
 
-    G0 = [-9.2289    4.34688   1.95079   2.93123;
-    4.34688  -8.93819   1.85527   2.73604;
-    1.95079   1.85527  -7.33457   3.52851;
-    2.93123   2.73604   3.52851  -9.19578]
+    D1 = (-pi..pi)
+    mybox = []
+    for i = 2:n
+        push!(mybox, D1)
+    end
 
-    L = collect(LinRange(0, 0.3, 14))
+    D = IntervalBox(mybox) 
+
+    println("k = 0")
+    rts = perform(V, T, B, G0, D, 0)
+
+    L = collect(LinRange(0.025, 0.3, 12))
     for k in (L)
-        perform(V, T, B, G0, k)
+        println("k = $k")
+        new_rts = []
+
+        for root in rts
+            d = next_interval(root)
+            new_root = perform(V, T, B, G0, d, k)
+            if length(new_root) > 1
+                println("$root made babies")
+            elseif length(new_root) == 0
+                println("$root died")
+            end
+            if length(new_root) > 0
+                for h in new_root
+                    push!(new_rts, h)
+                end
+            end
+        end
+        rts = new_rts
+        
     end
     println("im done")
     readline()
 
 end
 
-main_4D()
+for t = 1:5
+    println("Tenta $t")
+    main_4D()
+    savefig("3d roots $t.png")
+    
+end
