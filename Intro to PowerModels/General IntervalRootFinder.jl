@@ -1,4 +1,5 @@
-using PowerModels, LinearAlgebra, StaticArrays, IntervalArithmetic, IntervalRootFinding, JuMP, Ipopt, ProgressBars, ForwardDiff, Dates, Plots
+using PowerModels, LinearAlgebra, StaticArrays, IntervalArithmetic, IntervalRootFinding, JuMP, Ipopt, ProgressBars
+using Colors, ForwardDiff, Dates, Plots
 
 function Powers(V, T, B, G = B.*0)
     P = []
@@ -51,7 +52,7 @@ function return_f_KS(V, B, P, slackbus_id = 1)
     return sol
 end
 
-function perform(V, T, B, G0, D, k = 0)
+function perform(V, T, B, G0, D, k = 0, i = 1)
     n = length(V)
     G = -G0 .* k
     
@@ -85,20 +86,25 @@ function perform(V, T, B, G0, D, k = 0)
     display(rts)
     
     THD = false
+    if i > 15
+        i = 15
+    end
+    mycolors = cgrad([:tomato2, :green], 15, categorical = true)
     if n == 3
         for r in rts
             m = mid(r.interval)
-            if length(rts) > 2
-                plot!([m[1]], [m[2]], seriestype = :scatter, color = :green, label="", show = true)
+            if k > 0
+                plot!([m[1]], [m[2]], marker = :circle, color = mycolors[i], label="", show = true)
             else
-                plot!([m[1]], [m[2]], seriestype = :scatter, color = :red, label="", show = true)
+                plot!([m[1]], [m[2]], marker = :circle, markersize = 5, color = :red, label="", show = true)
             end
+
         end
     elseif n == 4
         for r in rts
             m = mid(r.interval)
-            if length(rts) > 2
-                plot3d!([m[1]], [m[2]], [m[3]], marker = :circle, color = :green, label="", show = true)
+            if k > 0
+                plot3d!([m[1]], [m[2]], [m[3]], marker = :circle, color = mycolors[i], label="", show = true)
             else
                 plot3d!([m[1]], [m[2]], [m[3]], marker = :circle, color = :red, label="", show = true)
             end
@@ -183,6 +189,7 @@ function main_yielding_a_contradiction() # 3 bus system that contradicts the ass
 
     L = collect(LinRange(0, 0.3, 14))
     for k in (L)
+        println("k = $k")
         perform(V, T, B, G0, D, k)
     end
     println("im done")
@@ -191,8 +198,8 @@ end
 
 function main()
 
-    t2 = rand()*2*pi
-    t3 = rand()*2*pi
+    t2 = 4.8537128789937585 
+    t3 = 2.315641991877846
     println("Initial angles = $t2, $t3")
     T = [0., t2, t3]
     V = [1., 1., 1.]
@@ -200,11 +207,16 @@ function main()
 
     println("B susceptance matrix")
 
-    B = random_B(10, 3, true)
-    #B = [-7.53 4.33 3.2; 4.33 -5.49 1.16; 3.2 1.16 -4.36]
+    #B = random_B(10, 3, true)
+    B = [-12.4998    8.05323    4.44654;
+    8.05323  -8.77734    0.724114;
+    4.44654   0.724114  -5.17065]
 
     println("G0 loss matrix")
-    G0 = random_B(6, 3, true)
+    #G0 = random_B(6, 3, true)
+    G0 = [-2.56908    2.43434    0.134738;
+    2.43434   -3.17263    0.738285;
+    0.134738   0.738285  -0.873022]
 
     D1 = (-pi..pi)
     mybox = []
@@ -216,15 +228,16 @@ function main()
 
     println("k = 0")
     rts = perform(V, T, B, G0, D, 0)
-
+    already_here = false
+    i = 1
     L = collect(LinRange(0.025, 0.3, 12))
     for k in (L)
-        println("k = $k")
+        println("k = $(round(k, digits = 3))")
         new_rts = []
 
         for root in rts
             d = next_interval(root)
-            new_root = perform(V, T, B, G0, d, k)
+            new_root = perform(V, T, B, G0, d, k, i)
             if length(new_root) > 1
                 println("$root made babies")
             elseif length(new_root) == 0
@@ -232,12 +245,20 @@ function main()
             end
             if length(new_root) > 0
                 for h in new_root
-                    push!(new_rts, h)
+                    for g in new_rts
+                        if !isempty(g.interval ∩ h.interval)
+                            already_here = true
+                        end
+                    end
+                    if !already_here
+                        push!(new_rts, h)
+                    end
+                    already_here = false
                 end
             end
         end
         rts = new_rts
-        
+        i += 1 
     end
     println("im done")
     readline()
@@ -271,15 +292,16 @@ function main_4D()
 
     println("k = 0")
     rts = perform(V, T, B, G0, D, 0)
-
+    already_here = false
+    i = 1
     L = collect(LinRange(0.025, 0.3, 12))
     for k in (L)
-        println("k = $k")
+        println("k = $(round(k, digits = 3))")
         new_rts = []
 
         for root in rts
             d = next_interval(root)
-            new_root = perform(V, T, B, G0, d, k)
+            new_root = perform(V, T, B, G0, d, k, i)
             if length(new_root) > 1
                 println("$root made babies")
             elseif length(new_root) == 0
@@ -287,21 +309,24 @@ function main_4D()
             end
             if length(new_root) > 0
                 for h in new_root
-                    push!(new_rts, h)
+                    for g in new_rts
+                        if !isempty(g.interval ∩ h.interval)
+                            already_here = true
+                        end
+                    end
+                    if !already_here
+                        push!(new_rts, h)
+                    end
+                    already_here = false
                 end
             end
         end
         rts = new_rts
-        
+        i += 1 
     end
     println("im done")
     readline()
 
 end
 
-for t = 1:5
-    println("Tenta $t")
-    main_4D()
-    savefig("3d roots $t.png")
-    
-end
+main()
