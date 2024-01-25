@@ -92,10 +92,10 @@ function power_losses(mydata) # Takes a state of the system as input and compute
     end
 
     absolute_loss = generated_power - consumed_power
-    println("Generated power that went in the network : $generated_power")
-    println("Consumed power : $consumed_power")
+    #println("Generated power that went in the network : $generated_power")
+    #println("Consumed power : $consumed_power")
     rel_loss = round(absolute_loss / generated_power, digits = 3)
-    println("The total power loss of the system amounts for $(100*rel_loss)% of the generated power.")
+    #println("The total power loss of the system amounts for $(100*rel_loss)% of the generated power.")
     return rel_loss
 end
 
@@ -119,11 +119,12 @@ function power_losses_via_pf(mydata) # If te power flow equations are satisfied,
         Pi *= buses[i][2]["vm"]
         push!(P,Pi)
     end
-
+    total_power = 0
     generated_power = 0
     consumed_power = 0
 
     for p in P
+        total_power += p
         if p > 0
             generated_power += p
         else
@@ -131,11 +132,11 @@ function power_losses_via_pf(mydata) # If te power flow equations are satisfied,
         end
     end
 
-    absolute_loss = generated_power - consumed_power
-    println("Generated power that went in the network, says PF : $generated_power")
-    println("Consumed power, says PF : $consumed_power")
-    rel_loss = round(absolute_loss / generated_power, digits = 3)
-    println("The total power loss of the system amounts for $(100*rel_loss)% of the generated power, says PF.")
+    println("Total power, ie total loss : $total_power")
+    #println("Generated power that went in the network, says PF : $generated_power")
+    #println("Consumed power, says PF : $consumed_power")
+    rel_loss = round(total_power / generated_power, digits = 3)
+    #println("The total power loss of the system amounts for $(100*rel_loss)% of the generated power, says PF.")
     return rel_loss
 
 end

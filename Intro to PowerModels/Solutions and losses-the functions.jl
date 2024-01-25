@@ -1,6 +1,7 @@
 function Powers(V, T, B, G = B.*0)
     P = []
     n = length(V)
+
     for i = 1:n
         Pi = 0
         for j = 1:n
@@ -74,6 +75,25 @@ function random_B(scale = 12, dim = 3, showit = false)
     end
 
     return B
+end
+
+function in_target_region(x, y)
+    abs(x - y) > π / 2 || abs(x) > π / 2 || abs(y) > π / 2
+end
+
+function initialize_background(minX = -pi, maxX = pi, minY = -pi, maxY = pi)
+    x_range = range(minX, stop = maxX, length = 100)
+    y_range = range(minY, stop = maxY, length = 100)
+
+    # Create a 2D grid of points
+    points = [(x, y) for x in x_range, y in y_range]
+
+    # Extract points in the specified region
+    target_points = [(x, y) for (x, y) in points if in_target_region(x, y)]
+
+    # Plot the background with light yellow color
+    plot(target_points, seriestype = :scatter, color = :lightyellow, markerstrokewidth = 0, legend = false, show = true)
+
 end
 
 

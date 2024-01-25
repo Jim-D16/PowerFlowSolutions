@@ -3,7 +3,7 @@ using Colors, ForwardDiff, Dates, Plots
 
 include("C:/Users/jim.delitroz/Documents/Julia scripts/src/Intro to PowerModels/Solutions and losses-the functions.jl")
 
-function perform(V, T, B, G0, D, k = 0, i = 1)
+function perform(V, T, B, G0, D, k = 0, i = 1) #Every computation made from this script had the "correct?" sign of G, that is, G was the opposite of B which is GREAT.
     n = length(V)
     G = -G0 .* k
     
@@ -14,9 +14,7 @@ function perform(V, T, B, G0, D, k = 0, i = 1)
 
     rts = roots(F, D, Krawczyk, 1e-4)
 
-
-    
-    numberofcolors = 38
+    numberofcolors = 22
     THD = false
     if i > numberofcolors
         i = numberofcolors
@@ -33,7 +31,7 @@ function perform(V, T, B, G0, D, k = 0, i = 1)
                 total_loss += p
             end
             println("Total loss : $(round(total_loss, digits = 3))")
-            if total_loss < 0
+            if total_loss < -0.01
                 println("$r Not physically meaningful")
             else
                 display(r)
@@ -55,7 +53,7 @@ function perform(V, T, B, G0, D, k = 0, i = 1)
                 total_loss += p
             end
             println("Total loss : $total_loss")
-            if total_loss < 0
+            if total_loss < -0.01
                 println("$r Not physically meaningful")
             else
                 display(r)
@@ -80,9 +78,12 @@ end
 
 
 function main()
+    initialize_background()
 
-    t2 = 4.475179362142027
-    t3 = 0.4610013805421309
+    
+
+    t2 = rand()*2*pi
+    t3 = rand()*2*pi
     println("Initial angles = $t2, $t3")
     T = [0., t2, t3]
     V = [1., 1., 1.]
@@ -90,21 +91,26 @@ function main()
 
     println("B susceptance matrix")
 
-    #B = random_B(10, 3, true)
-    B = [-12.4522     5.70476    6.74743;
-    5.70476  -12.4265     6.72173;
-    6.74743    6.72173  -13.4692]
+    B = random_B(10, 3, true)
+    #= B = [-6     3    3;
+    3  -6     3;
+    3    3  -6] =#
 
 
     println("G0 loss matrix")
-    #G0 = random_B(6, 3, true)
-    G0 = [-7.9739    4.99974    2.97416;
-    4.99974  -5.92632    0.926577;
-    2.97416   0.926577  -3.90074]
+    G0 = random_B(6, 3, true)
+    #= G0 = [-6     3    3;
+    3  -6     3;
+    3    3  -6] =#
+
+    P = Powers(V, T, B)
+    println("P2 = $(P[2])")
+    println("P3 = $(P[3])") 
+    
 
     
    
-
+    D1 = (-pi..pi)
     mybox = []
     for i = 2:n
         push!(mybox, D1)
@@ -117,14 +123,14 @@ function main()
 
     already_here = false
     i = 1
-    L = collect(LinRange(0, 2, 50))
+    L = collect(LinRange(0, 1, 20))
     for k in (L)
         println("k = $(round(k, digits = 3))")
         new_rts = []
 
         for root in rts
             d = next_interval(root, 0.4)
-            new_root = perform(V, T, B, G0, d, k, i)
+            new_root = perform(V, T, B, G0, d, k, i) # 
             if length(new_root) > 1
                 println("$root made babies")
             elseif length(new_root) == 0
@@ -269,4 +275,4 @@ function main_yielding_a_contradiction_bis() # 3 bus system that contradicts the
     readline()
 end
 
-main_yielding_a_contradiction_bis()
+main()
