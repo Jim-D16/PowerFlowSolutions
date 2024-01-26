@@ -11,6 +11,8 @@ function perform(V, T, B, G0, D, k = 0, i = 1) #Every computation made from this
 
     
     F = (x -> SVector{n-1}([f(x) for f in return_f_KS(V, B, P)]))
+    display(F)
+    readline()
 
     rts = roots(F, D, Krawczyk, 1e-4)
 
@@ -78,9 +80,7 @@ end
 
 
 function main()
-    initialize_background()
 
-    
 
     t2 = rand()*2*pi
     t3 = rand()*2*pi
@@ -239,6 +239,7 @@ end
 
 function main_yielding_a_contradiction_bis() # 3 bus system that contradicts the assumption (losses increase -> solutions diminish)
     #The accelerated method (ie the use of next_interval) supposes that the assumption is true, in particular, using it here will not yield a contradiction (although there is one)
+    initialize_background()
     t2 = 0
     t3 = 3/2*pi
     println("Initial angles = $t2, $t3")
@@ -253,8 +254,13 @@ function main_yielding_a_contradiction_bis() # 3 bus system that contradicts the
     5  -7   2;
     3   2  -5]   
     
-    println("G0 loss matrix")
+    println("G0 opposite of scalable loss matrix")
     display(G0)
+
+
+    P = Powers(V, T, B)
+    println("P2 = $(P[2])")
+    println("P3 = $(P[3])") 
 
     D1 = (-pi..pi)
     mybox = []
@@ -275,4 +281,4 @@ function main_yielding_a_contradiction_bis() # 3 bus system that contradicts the
     readline()
 end
 
-main()
+main_yielding_a_contradiction_bis()
