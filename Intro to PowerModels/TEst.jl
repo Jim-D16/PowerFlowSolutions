@@ -1,13 +1,15 @@
 using Plots, Colors
 
-mycolors = cgrad([:orange, :blue], 30, categorical = true)
-println(mycolors[3])
+function main()
+V = [1, 2, 3]
 
-
-
-L = collect(LinRange(0.025, 0.3, 12))
-for i = 1:100
-    plot!([i], [i], marker = :circle, color = mycolors[i], show = true, label = "")
-    
+for i = 1:5
+    push!(V, 0)
+    if (n=length(V)) > 5
+        println("dingz $n")
+    end
+    println(n)
 end
-readline()
+
+end
+main()

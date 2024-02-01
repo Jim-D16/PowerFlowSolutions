@@ -7,16 +7,15 @@ function perform(V, T, B, G0, D, k = 0, i = 1) #Every computation made from this
     n = length(V)
     G = -G0 .* k
     
-    P = Powers(V, T, B, G)
+    P = Powers(V, T, B)
 
     
-    F = (x -> SVector{n-1}([f(x) for f in return_f_KS(V, B, P)]))
-    display(F)
-    readline()
+    F = (x -> SVector{n-1}([f(x) for f in return_f_KS(V, P, B, G)]))
+
 
     rts = roots(F, D, Krawczyk, 1e-4)
-
-    numberofcolors = 22
+    
+    numberofcolors = 28
     THD = false
     if i > numberofcolors
         i = numberofcolors
@@ -73,6 +72,7 @@ function perform(V, T, B, G0, D, k = 0, i = 1) #Every computation made from this
     if THD
         println("Too high dimension -> we cannot visualize the roots :/ ")
     end
+    
 
     return rts
 
@@ -80,10 +80,10 @@ end
 
 
 function main()
+    initialize_background()
 
-
-    t2 = rand()*2*pi
-    t3 = rand()*2*pi
+    t2 = 0.9
+    t3 = 0.79
     println("Initial angles = $t2, $t3")
     T = [0., t2, t3]
     V = [1., 1., 1.]
@@ -91,25 +91,22 @@ function main()
 
     println("B susceptance matrix")
 
-    B = random_B(10, 3, true)
-    #= B = [-6     3    3;
-    3  -6     3;
-    3    3  -6] =#
+    #B = random_B(10, 3, true)
+    B = [-2.3     1    1.3;
+    1  -2.8     1.8;
+    1.3    1.8  -3.1] 
 
 
     println("G0 loss matrix")
-    G0 = random_B(6, 3, true)
-    #= G0 = [-6     3    3;
-    3  -6     3;
-    3    3  -6] =#
+    #G0 = random_B(6, 3, true)
+    G0 = [-12.5  6    6.5;
+    6  -6.5  0.5;
+    6.5   0.5  -7] 
 
     P = Powers(V, T, B)
     println("P2 = $(P[2])")
     println("P3 = $(P[3])") 
     
-
-    
-   
     D1 = (-pi..pi)
     mybox = []
     for i = 2:n
@@ -118,15 +115,24 @@ function main()
 
     D = IntervalBox(mybox) 
 
-    println("k = 0")
-    rts = perform(V, T, B, G0, D, 0)
+    #rts = perform(V, T, B, G0, D, 0)
+
 
     already_here = false
     i = 1
-    L = collect(LinRange(0, 1, 20))
+    L = collect(LinRange(0, 1, 11))
     for k in (L)
-        println("k = $(round(k, digits = 3))")
-        new_rts = []
+        valid = 0
+  
+        rts = perform(V, T, B, G0, D, k, i)
+        println("k = $(round(k, digits = 3))  Number of sol : $(length(rts))")
+        for root in rts
+            m = mid(root.interval)
+            if (cos(m[1]) >= 0 && cos(m[2]) >= 0 && cos(m[1]-m[2]) >= 0)
+                valid += 1
+            end
+        end
+        #=new_rts = []
 
         for root in rts
             d = next_interval(root, 0.4)
@@ -151,7 +157,8 @@ function main()
             end
         end
         rts = new_rts
-        i += 1 
+        i += 1 =#
+
     end
     println("im done")
     readline()
@@ -237,7 +244,7 @@ function main_4D()
 
 end
 
-function main_yielding_a_contradiction_bis() # 3 bus system that contradicts the assumption (losses increase -> solutions diminish)
+function main_yielding_a_contradiction_bis() # 3 bus system that USED TO contradict the assumption (losses increase -> solutions diminish), but does not actually
     #The accelerated method (ie the use of next_interval) supposes that the assumption is true, in particular, using it here will not yield a contradiction (although there is one)
     initialize_background()
     t2 = 0
@@ -254,7 +261,7 @@ function main_yielding_a_contradiction_bis() # 3 bus system that contradicts the
     5  -7   2;
     3   2  -5]   
     
-    println("G0 opposite of scalable loss matrix")
+    println("G0 opposite of (unscaled) loss matrix")
     display(G0)
 
 
@@ -271,9 +278,9 @@ function main_yielding_a_contradiction_bis() # 3 bus system that contradicts the
     D = IntervalBox(mybox) 
 
     i = 1
-    L = collect(LinRange(0, 2.5, 36))
+    L = collect(LinRange(0, 2.5, 26))
     for k in (L)
-        println("k = $k")
+        println("k = $(round(k, digits = 2))")
         perform(V, T, B, G0, D, k, i)
         i += 1
     end
@@ -281,4 +288,56 @@ function main_yielding_a_contradiction_bis() # 3 bus system that contradicts the
     readline()
 end
 
-main_yielding_a_contradiction_bis()
+function main_searching_a_contradiction()
+    #The accelerated method (ie the use of next_interval) supposes that the assumption is true, in particular, using it here will not show a contradiction (even if there is one)
+    initialize_background()
+    t2 = rand()*2*pi
+    t3 = rand()*2*pi
+    println("Initial angles = $t2, $t3")
+    T = [0., t2, t3]
+    V = [1., 1., 1.]
+    println("B susceptance matrix")
+    B = random_B(12, 3, true)
+
+    n = length(T)
+
+    spot = 100
+    
+    println("G0 opposite of (unscaled) loss matrix")
+    G0 = random_B(10, 3, true)
+
+
+    P = Powers(V, T, B)
+    println("P2 = $(P[2])")
+    println("P3 = $(P[3])") 
+
+    D1 = (-pi..pi)
+    mybox = []
+    for i = 2:n
+        push!(mybox, D1)
+    end
+
+    D = IntervalBox(mybox) 
+
+    i = 1
+    L = collect(LinRange(0, 2.5, 26))
+    for k in (L)
+        println("k = $(round(k, digits = 2))")
+        if (l = length(perform(V, T, B, G0, D, k, i))) > spot
+            println("k reached value $k. Consequently, our number of solutions jumped from $spot to $l")
+            readline()
+        elseif l >= 4
+            break
+        end
+        spot = l
+        i += 1
+        
+    end
+    println("im done")
+end
+main()
+exit()
+for j = 1:5
+    main_searching_a_contradiction()
+end
+readline()

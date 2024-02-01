@@ -32,19 +32,19 @@ function Reactive_Powers(V, T, B, G = B.*0)
     return Q
 end
 
-function return_f_KS(V, B, P, slackbus_id = 1) # Je crois que je fais nimp. Si k > 0, je calcule P2, P3 avec les angles initiaux et k, puis cherche des solutions à l'éq. lossless P2 = ...
+function return_f_KS(V, P, B, G, slackbus_id = 1) # Je crois que je fais nimp. Si k > 0, je calcule P2, P3 avec les angles initiaux et k, puis cherche des solutions à l'éq. lossless P2 = ...
     sol = []
     t = slackbus_id - 1 
     t2 = slackbus_id + 1
     n = length(V)
 
     for i = 1:t
-        eq = (x -> Powers(V, [0; collect(x)], B)[i] - P[i])
+        eq = (x -> Powers(V, [0; collect(x)], B, G)[i] - P[i])
         push!(sol, eq)
     end
 
     for i = t2:n
-        eq = (x -> Powers(V, [0; collect(x)], B)[i] - P[i])
+        eq = (x -> Powers(V, [0; collect(x)], B, G)[i] - P[i])
         push!(sol, eq)
     end
     return sol
