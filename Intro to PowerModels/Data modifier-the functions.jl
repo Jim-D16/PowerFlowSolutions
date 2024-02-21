@@ -146,12 +146,17 @@ function init_voltage_angles!(mydata,V)
     end
 end
 
-function vector_angles(L,wn = 1) # Length of the cycle, winding numbers
-    V=[]
-    for i = 1:L
-        theta_i = wn*2*pi/L*(i-1)
-        push!(V,theta_i)
+function vector_angles(L, wn = 1, noise = 0) # Length of the cycle, winding numbers, max magnitude of the noise (so that each angle diff equals 2pi*wn/L +- noise*rand())
+    V = []
+    for i = 1:(L-1)
+        theta_i = wn*2*pi/L*(i-1) + noise*(rand()-0.5)
+        push!(V, theta_i)
     end
+    last_angle = (L-1)*pi*wn
+    for v in V
+        last_angle -= v
+    end
+    push!(V, last_angle)
     return V
 end
 
@@ -166,3 +171,49 @@ function randomize_init!(mydata) #Randomiser les initialisations de toutes les v
         end
     end
 end
+
+function my_cyclic_susceptance_matrix(M, random = false) # Returns a matrix that describes a cycle. If random == true, it will instantiate a new matrix every time, otherwise, it is always the same
+
+    if M > 20
+        println("Sorry, my_cyclic_susceptance_matrix cannot provide a >20x20 matrix")
+        return 0
+    end
+    B = zeros(M, M)
+    if random
+        for i = 1:(M-1)
+            b = rand()*8
+            B[i, i+1] = b
+            B[i+1, i] = b
+        end
+        B[1, M] = rand()*8
+        B[M, 1] = B[1, M]
+
+        for i = 1:M
+            sum_i = 0
+            for j = 1:M
+                sum_i -= B[i, j]
+            end
+            B[i, i] = sum_i
+        end
+    else
+        arbitrary_values = [2.1, 4.8, 1.1, 5.2, 2.0, 0.3, 0.5, 7.0, 3.3, 6.7, 2.8, 2.8, 7.2, 0.2, 3.2, 0.9, 7.2, 2.0, 1.0, 0.8]
+        for i = 1:(M-1)
+            b = arbitrary_values[i]
+            B[i, i+1] = b
+            B[i+1, i] = b
+        end
+        B[1, M] = arbitrary_values[M]
+        B[M, 1] = B[1, M]
+
+        for i = 1:M
+            sum_i = 0
+            for j = 1:M
+                sum_i -= B[i, j]
+            end
+            B[i, i] = sum_i
+        end
+    end
+    return B
+end
+
+

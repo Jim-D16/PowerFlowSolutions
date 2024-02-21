@@ -82,8 +82,8 @@ end
 function main()
     initialize_background()
 
-    t2 = 0.9
-    t3 = 0.79
+    t2 = rand()*2*pi
+    t3 = rand()*2*pi
     println("Initial angles = $t2, $t3")
     T = [0., t2, t3]
     V = [1., 1., 1.]
@@ -91,23 +91,27 @@ function main()
 
     println("B susceptance matrix")
 
-    #B = random_B(10, 3, true)
+    B = random_B(10, 3, true)
+    #=
     B = [-2.3     1    1.3;
     1  -2.8     1.8;
     1.3    1.8  -3.1] 
+    =#
 
 
     println("G0 loss matrix")
-    #G0 = random_B(6, 3, true)
+    G0 = random_B(6, 3, true)
+    #=
     G0 = [-12.5  6    6.5;
     6  -6.5  0.5;
     6.5   0.5  -7] 
+    =#
 
     P = Powers(V, T, B)
     println("P2 = $(P[2])")
     println("P3 = $(P[3])") 
     
-    D1 = (-pi..pi)
+    D1 = (-pi/2..pi/2)
     mybox = []
     for i = 2:n
         push!(mybox, D1)
@@ -115,7 +119,20 @@ function main()
 
     D = IntervalBox(mybox) 
 
-    #rts = perform(V, T, B, G0, D, 0)
+    rts = perform(V, T, B, G0, D, 0)
+    println("Every lossless solution has been found ;-)")
+    valid = 0
+    for root in rts
+        m = mid(root.interval)
+        if (cos(m[1]) >= 0 && cos(m[2]) >= 0 && cos(m[1]-m[2]) >= 0)
+            valid += 1
+        end
+    end
+    if valid > 1
+        readline()
+    end
+
+#=
 
 
     already_here = false
@@ -161,7 +178,8 @@ function main()
 
     end
     println("im done")
-    readline()
+    readline() 
+=#
 end
 
 function main_4D()
@@ -335,9 +353,8 @@ function main_searching_a_contradiction()
     end
     println("im done")
 end
-main()
-exit()
-for j = 1:5
-    main_searching_a_contradiction()
+for i = 1:15
+    main()
 end
-readline()
+exit()
+
